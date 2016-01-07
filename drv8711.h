@@ -5,6 +5,9 @@
 #include "registers.h"
 #include "SPI.h"
 
+// set debug to 1 for extended serial logging
+#define debug 0 
+
 #define DTIME_400 0x00
 #define DTIME_450 0x01
 #define DTIME_650 0x02
@@ -84,8 +87,8 @@
 #define ON			0x01
 #define OFF			0x00 
 
-#define REGWRITE    0x00
-#define REGREAD     0x80
+#define REGWRITE    0x0000
+#define REGREAD     0x8000
 
 class drv8711
 {
@@ -102,21 +105,14 @@ class drv8711
   struct STATUS_Register 	G_STATUS_REG;
 
   bool SavedStart; 
+  bool ErrorFlag;
   
   void init(); 
-
   void enable ();  
-  
   void disable ();
- 
   void get_status ();
-  
   void clear_status ();
- 
- // void save ();
-  
- // void recall () ;
-   
+  void clear_error ();
   void set_defaults ();
   
   void ReadAllRegisters () ;
@@ -142,8 +138,9 @@ class drv8711
 private:
  
   byte _pin;
-   
-  unsigned int SPI_ReadWrite(unsigned char dataHi, unsigned char dataLo);
+  
+  unsigned int SPI_ReadWrite(unsigned int sendData);
+  bool SPI_VerifiedWrite(unsigned int sendData);
  
  };
 

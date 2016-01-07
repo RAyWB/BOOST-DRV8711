@@ -9,23 +9,25 @@
 drv8711::drv8711 (int pin)
 {
 	pinMode(pin, OUTPUT);
-	_pin = pin ;
-	SavedStart = OFF ;
+	_pin = pin;
+	SavedStart = OFF;
+	ErrorFlag = false;
 	
+	SPI.begin(); 
+    SPI.setClockDivider(SPI_CLOCK_DIV4);
+	SPI.setDataMode(SPI_MODE0);
+	SPI.setBitOrder(MSBFIRST);
  }
 
 void drv8711::init () 
 {
     set_defaults();
-
     WriteAllRegisters();
-  
  }
 
 void drv8711::set_defaults ()
 {
-    
-	// CTRL Register
+ 	// CTRL Register
 	G_CTRL_REG.Address 	= 0x00;
 	G_CTRL_REG.DTIME 	= DTIME_850; 	//Dead Time in ns
 	G_CTRL_REG.ISGAIN   = ISGAIN_20;	//ISENSE amp gain 
@@ -80,7 +82,6 @@ void drv8711::set_defaults ()
 	G_STATUS_REG.BOCP    = OFF;			//Channel B OverCurrent 
 	G_STATUS_REG.AOCP    = OFF;			//Channel A OverCurrent 
 	G_STATUS_REG.OTS     = OFF;			//Over Temperature 
-	
 }
  
 void drv8711::enable ()
@@ -95,7 +96,6 @@ void drv8711::disable ()
 	// Set Disable Bit
 	G_CTRL_REG.ENBL 	= OFF;  //disable motor
 	WriteCTRLRegister();
-
 }
 
 void drv8711::get_status ()
@@ -117,15 +117,19 @@ void drv8711::clear_status ()
 	WriteSTATUSRegister();
 }
 
+void drv8711::clear_error()
+{
+	ErrorFlag = false;
+}
+
 void drv8711::ReadCTRLRegister()
 {
-    unsigned char dataHi = 0x00;
-    const unsigned char dataLo = 0x00;
-    unsigned int readData = 0x00;
+    unsigned int sendData = 0;
+    unsigned int readData = 0;
 
     // Read CTRL Register
-    dataHi = REGREAD | (G_CTRL_REG.Address << 4);
-    readData = SPI_ReadWrite(dataHi, dataLo);
+    sendData = REGREAD | (G_CTRL_REG.Address << 12);
+    readData = SPI_ReadWrite(sendData);
     G_CTRL_REG.DTIME        = ((readData >> 10) & 0x0003);
     G_CTRL_REG.ISGAIN       = ((readData >> 8) & 0x0003);
     G_CTRL_REG.EXSTALL      = ((readData >> 7) & 0x0001);
@@ -133,72 +137,64 @@ void drv8711::ReadCTRLRegister()
     G_CTRL_REG.RSTEP        = ((readData >> 2) & 0x0001);
     G_CTRL_REG.RDIR         = ((readData >> 1) & 0x0001);
     G_CTRL_REG.ENBL         = ((readData >> 0) & 0x0001);
-
 }
 
 void drv8711::ReadTORQUERegister()
 {
-    unsigned char dataHi = 0x00;
-    const unsigned char dataLo = 0x00;
-    unsigned int readData = 0x00;
+	unsigned int sendData = 0;
+    unsigned int readData = 0;
 
 	// Read TORQUE Register
-    dataHi = REGREAD | (G_TORQUE_REG.Address << 4);
-    readData = SPI_ReadWrite(dataHi, dataLo);
+    sendData = REGREAD | (G_TORQUE_REG.Address << 12);
+    readData = SPI_ReadWrite(sendData);
     G_TORQUE_REG.SIMPLTH    = ((readData >> 8) & 0x0007);
     G_TORQUE_REG.TORQUE     = ((readData >> 0) & 0x00FF);
-	
 }
 
 void drv8711::ReadOFFRegister()
 {
-    unsigned char dataHi = 0x00;
-    const unsigned char dataLo = 0x00;
-    unsigned int readData = 0x00;
+    unsigned int sendData = 0;
+    unsigned int readData = 0;
 
     // Read OFF Register
-    dataHi = REGREAD | (G_OFF_REG.Address << 4);
-    readData = SPI_ReadWrite(dataHi, dataLo);
+    sendData = REGREAD | (G_OFF_REG.Address << 12);
+    readData = SPI_ReadWrite(sendData);
     G_OFF_REG.PWMMODE       = ((readData >> 8) & 0x0001);
     G_OFF_REG.TOFF          = ((readData >> 0) & 0x00FF);
-	
 }
 
 void drv8711::ReadBLANKRegister()
 {
-    unsigned char dataHi = 0x00;
-    const unsigned char dataLo = 0x00;
-    unsigned int readData = 0x00;
+    unsigned int sendData = 0;
+    unsigned int readData = 0;
 
     // Read BLANK Register
-    dataHi = REGREAD | (G_BLANK_REG.Address << 4);
-    readData = SPI_ReadWrite(dataHi, dataLo);
+    sendData = REGREAD | (G_BLANK_REG.Address << 12);
+    readData = SPI_ReadWrite(sendData);
     G_BLANK_REG.ABT         = ((readData >> 8) & 0x0001);
     G_BLANK_REG.TBLANK      = ((readData >> 0) & 0x00FF);
 }
 
 void drv8711::ReadDECAYRegister()
 {
-    unsigned char dataHi = 0x00;
-    const unsigned char dataLo = 0x00;
-    unsigned int readData = 0x00;
+    unsigned int sendData = 0;
+    unsigned int readData = 0;
 
     // Read DECAY Register
-    dataHi = REGREAD | (G_DECAY_REG.Address << 4);
-    readData = SPI_ReadWrite(dataHi, dataLo);
+    sendData = REGREAD | (G_DECAY_REG.Address << 12);
+    readData = SPI_ReadWrite(sendData);
     G_DECAY_REG.DECMOD      = ((readData >> 8) & 0x0007);
     G_DECAY_REG.TDECAY      = ((readData >> 0) & 0x00FF);
 }
 
 void drv8711::ReadSTALLRegister()
 {
-    unsigned char dataHi = 0x00;
-    const unsigned char dataLo = 0x00;
-    unsigned int readData = 0x00;
+    unsigned int sendData = 0;
+    unsigned int readData = 0;
 
     // Read STALL Register
-    dataHi = REGREAD | (G_STALL_REG.Address << 4);
-    readData = SPI_ReadWrite(dataHi, dataLo);
+    sendData = REGREAD | (G_STALL_REG.Address << 12);
+    readData = SPI_ReadWrite(sendData);
     G_STALL_REG.VDIV        = ((readData >> 10) & 0x0003);
     G_STALL_REG.SDCNT       = ((readData >> 8) & 0x0003);
     G_STALL_REG.SDTHR       = ((readData >> 0) & 0x00FF);
@@ -206,13 +202,12 @@ void drv8711::ReadSTALLRegister()
 
 void drv8711::ReadDRIVERegister()
 {
-    unsigned char dataHi = 0x00;
-    const unsigned char dataLo = 0x00;
-    unsigned int readData = 0x00;
+    unsigned int sendData = 0;
+    unsigned int readData = 0;
 
     // Read DRIVE Register
-    dataHi = REGREAD | (G_DRIVE_REG.Address << 4);
-    readData = SPI_ReadWrite(dataHi, dataLo);
+    sendData = REGREAD | (G_DRIVE_REG.Address << 12);
+    readData = SPI_ReadWrite(sendData);
     G_DRIVE_REG.IDRIVEP     = ((readData >> 10) & 0x0003);
     G_DRIVE_REG.IDRIVEN     = ((readData >> 8) & 0x0003);
     G_DRIVE_REG.TDRIVEP     = ((readData >> 6) & 0x0003);
@@ -223,13 +218,12 @@ void drv8711::ReadDRIVERegister()
 
 void drv8711::ReadSTATUSRegister()
 {
-    unsigned char dataHi = 0x00;
-    const unsigned char dataLo = 0x00;
-    unsigned int readData = 0x00;
+    unsigned int sendData = 0;
+    unsigned int readData = 0;
 
     // Read STATUS Register
-    dataHi = REGREAD | (G_STATUS_REG.Address << 4);
-    readData = SPI_ReadWrite(dataHi, dataLo);
+    sendData = REGREAD | (G_STATUS_REG.Address << 12);
+    readData = SPI_ReadWrite(sendData);
     G_STATUS_REG.STDLAT     = ((readData >> 7) & 0x0001);
     G_STATUS_REG.STD        = ((readData >> 6) & 0x0001);
     G_STATUS_REG.UVLO       = ((readData >> 5) & 0x0001);
@@ -254,83 +248,141 @@ void drv8711::ReadAllRegisters()
 
 void drv8711::WriteCTRLRegister()
 {
-    unsigned char dataHi = 0x00;
-    unsigned char dataLo = 0x00;
-
-    // Write CTRL Register
-    dataHi = REGWRITE | (G_CTRL_REG.Address << 4) | (G_CTRL_REG.DTIME << 2) | (G_CTRL_REG.ISGAIN);
-    dataLo = (G_CTRL_REG.EXSTALL << 7) | (G_CTRL_REG.MODE << 3) | (G_CTRL_REG.RSTEP << 2) | (G_CTRL_REG.RDIR << 1) | (G_CTRL_REG.ENBL);
-    SPI_ReadWrite(dataHi, dataLo);
+    unsigned int sendData = 0;
+    
+	// Write CTRL Register
+    sendData = REGWRITE | (G_CTRL_REG.Address << 12) | (G_CTRL_REG.DTIME << 10) | (G_CTRL_REG.ISGAIN << 8);
+    sendData |= (G_CTRL_REG.EXSTALL << 7) | (G_CTRL_REG.MODE << 3) | (G_CTRL_REG.RSTEP << 2) | (G_CTRL_REG.RDIR << 1) | (G_CTRL_REG.ENBL);
+	#if debug
+	  Serial.println("Writing CTRL Reg");
+	#endif
+	if (!SPI_VerifiedWrite(sendData)){
+	  #if debug
+	    Serial.println("Write to CTRL Register Failed");
+	  #endif
+	  ErrorFlag = true;
+	};
 }
+
 void drv8711::WriteTORQUERegister()
 {
-    unsigned char dataHi = 0x00;
-    unsigned char dataLo = 0x00;
-
+    unsigned int sendData = 0;
+    
     // Write TORQUE Register
-    dataHi = REGWRITE | (G_TORQUE_REG.Address << 4) | (G_TORQUE_REG.SIMPLTH);
-    dataLo = G_TORQUE_REG.TORQUE;
-    SPI_ReadWrite(dataHi, dataLo);
+    sendData = REGWRITE | (G_TORQUE_REG.Address << 12) | (G_TORQUE_REG.SIMPLTH << 8);
+    sendData |= G_TORQUE_REG.TORQUE;
+	#if debug 
+	  Serial.println("Writing TORQUE Reg");
+    #endif
+	if (!SPI_VerifiedWrite(sendData)){
+	  #if debug
+	    Serial.println("Write to TORQUE Register Failed");
+	  #endif
+	  ErrorFlag = true;
+	};
 }	
+
 void drv8711::WriteOFFRegister()
 {
-    unsigned char dataHi = 0x00;
-    unsigned char dataLo = 0x00;
-
+    unsigned int sendData = 0;
+    
     // Write OFF Register
-    dataHi = REGWRITE | (G_OFF_REG.Address << 4) | (G_OFF_REG.PWMMODE);
-    dataLo = G_OFF_REG.TOFF;
-    SPI_ReadWrite(dataHi, dataLo);
+    sendData = REGWRITE | (G_OFF_REG.Address << 12) | (G_OFF_REG.PWMMODE << 8);
+    sendData |= G_OFF_REG.TOFF;
+	#if debug
+	  Serial.println("Writing OFF Reg");
+    #endif
+	if (!SPI_VerifiedWrite(sendData)){
+	  #if debug 
+	    Serial.println("Write to OFF Register Failed");
+	  #endif 
+	  ErrorFlag = true;
+	};
 }
+
 void drv8711::WriteBLANKRegister()
 {
-    unsigned char dataHi = 0x00;
-    unsigned char dataLo = 0x00;
-
+    unsigned int sendData = 0;
+    
     // Write BLANK Register
-    dataHi = REGWRITE | (G_BLANK_REG.Address << 4) | (G_BLANK_REG.ABT);
-    dataLo = G_BLANK_REG.TBLANK;
-    SPI_ReadWrite(dataHi, dataLo);
+    sendData = REGWRITE | (G_BLANK_REG.Address << 12) | (G_BLANK_REG.ABT << 8);
+    sendData |= G_BLANK_REG.TBLANK;
+	#if debug
+	  Serial.println("Writing BLANK Reg");
+    #endif
+	if (!SPI_VerifiedWrite(sendData)){
+	  #if debug
+	    Serial.println("Write to BLANK Register Failed");
+	  #endif
+	  ErrorFlag = true;
+	};
 }
+
 void drv8711::WriteDECAYRegister()
 {
-    unsigned char dataHi = 0x00;
-    unsigned char dataLo = 0x00;
-
+    unsigned int sendData = 0;
+    
     // Write DECAY Register
-    dataHi = REGWRITE | (G_DECAY_REG.Address << 4) | (G_DECAY_REG.DECMOD);
-    dataLo = G_DECAY_REG.TDECAY;
-    SPI_ReadWrite(dataHi, dataLo);
+    sendData = REGWRITE | (G_DECAY_REG.Address << 12) | (G_DECAY_REG.DECMOD << 8);
+    sendData |= G_DECAY_REG.TDECAY;
+	#if debug
+	  Serial.println("Writing DECAY Reg");
+    #endif
+	if (!SPI_VerifiedWrite(sendData)){
+	  #if debug
+	    Serial.println("Write to DECAY Register Failed");
+	  #endif
+	  ErrorFlag = true;
+	};
 }
+
 void drv8711::WriteSTALLRegister()
 {
-    unsigned char dataHi = 0x00;
-    unsigned char dataLo = 0x00;
-
+    unsigned int sendData = 0;
+    
     // Write STALL Register
-    dataHi = REGWRITE | (G_STALL_REG.Address << 4) | (G_STALL_REG.VDIV << 2) | (G_STALL_REG.SDCNT);
-    dataLo = G_STALL_REG.SDTHR;
-    SPI_ReadWrite(dataHi, dataLo);
+    sendData = REGWRITE | (G_STALL_REG.Address << 12) | (G_STALL_REG.VDIV << 10) | (G_STALL_REG.SDCNT << 8);
+    sendData |= G_STALL_REG.SDTHR;
+    #if debug
+	  Serial.println("Writing STALL Reg");
+	#endif
+	if (!SPI_VerifiedWrite(sendData)){
+	  #if debug
+	   Serial.println("Write to STALL Register Failed");
+	  #endif
+	  ErrorFlag = true;
+	};
 }
+
 void drv8711::WriteDRIVERegister()
 {
-    unsigned char dataHi = 0x00;
-    unsigned char dataLo = 0x00;
-
+    unsigned int sendData = 0;
+    
     // Write DRIVE Register
-    dataHi = REGWRITE | (G_DRIVE_REG.Address << 4) | (G_DRIVE_REG.IDRIVEP << 2) | (G_DRIVE_REG.IDRIVEN);
-    dataLo = (G_DRIVE_REG.TDRIVEP << 6) | (G_DRIVE_REG.TDRIVEN << 4) | (G_DRIVE_REG.OCPDEG << 2) | (G_DRIVE_REG.OCPTH);
-    SPI_ReadWrite(dataHi, dataLo);
+    sendData = REGWRITE | (G_DRIVE_REG.Address << 12) | (G_DRIVE_REG.IDRIVEP << 10) | (G_DRIVE_REG.IDRIVEN << 8);
+    sendData |= (G_DRIVE_REG.TDRIVEP << 6) | (G_DRIVE_REG.TDRIVEN << 4) | (G_DRIVE_REG.OCPDEG << 2) | (G_DRIVE_REG.OCPTH);
+    #if debug
+	 Serial.println("Writing DRIVE Reg");
+	#endif 
+	if (!SPI_VerifiedWrite(sendData)){
+	  #if debug
+	    Serial.println("Write to DRIVE Register Failed");
+      #endif 	  
+	  ErrorFlag = true;
+	};
 }
+
 void drv8711::WriteSTATUSRegister()
 {
-    unsigned char dataHi = 0x00;
-    unsigned char dataLo = 0x00;
-
+    unsigned int sendData = 0;
+    
     // Write STATUS Register
-    dataHi = REGWRITE | (G_STATUS_REG.Address << 4);
-    dataLo = (G_STATUS_REG.STDLAT << 7) | (G_STATUS_REG.STD << 6) | (G_STATUS_REG.UVLO << 5) | (G_STATUS_REG.BPDF << 4) | (G_STATUS_REG.APDF << 3) | (G_STATUS_REG.BOCP << 2) | (G_STATUS_REG.AOCP << 1) | (G_STATUS_REG.OTS);
-    SPI_ReadWrite(dataHi, dataLo);
+    sendData = REGWRITE | (G_STATUS_REG.Address << 12) ;
+    sendData |= (G_STATUS_REG.STDLAT << 7) | (G_STATUS_REG.STD << 6) | (G_STATUS_REG.UVLO << 5) | (G_STATUS_REG.BPDF << 4) | (G_STATUS_REG.APDF << 3) | (G_STATUS_REG.BOCP << 2) | (G_STATUS_REG.AOCP << 1) | (G_STATUS_REG.OTS);
+    #if debug 
+	 Serial.println("Writing STATUS Reg");
+	#endif
+	SPI_ReadWrite(sendData);
 }
 
 void drv8711::WriteAllRegisters()
@@ -345,17 +397,39 @@ void drv8711::WriteAllRegisters()
 	WriteSTATUSRegister();
 }
 
-unsigned int drv8711::SPI_ReadWrite(unsigned char dataHi, unsigned char dataLo)
+bool drv8711::SPI_VerifiedWrite(unsigned int sendData)
+{
+    unsigned int readData = 0;
+	int attempts = 0;
+    const int maxtries = 10;	
+	bool success = false;
+	
+	do {
+	  attempts++;
+	  // Write
+      SPI_ReadWrite(sendData);
+      // Readback
+      readData = SPI_ReadWrite(REGREAD | sendData);
+      // Compare
+	  if ((readData << 4) == (sendData << 4)) {
+		  success = true;
+	    } else {
+		  #if debug
+		    Serial.println ("SPI Write Error, attempt:" + String(attempts));
+		  #endif
+		  delayMicroseconds(attempts); // delay before trying again
+		}
+	} while ( (success == false) && (attempts < maxtries) ) ;
+	return success;
+}
+
+
+unsigned int drv8711::SPI_ReadWrite(unsigned int sendData)
 {
 	unsigned int readData = 0;
-    SPI.begin(); 
-    SPI.setClockDivider(SPI_CLOCK_DIV8);
-	digitalWrite(_pin, HIGH);
-	delayMicroseconds (1) ;
-	readData |= (SPI.transfer(dataHi) << 8);
-	readData |= SPI.transfer(dataLo);
-
+	
+    digitalWrite(_pin, HIGH);
+	readData = SPI.transfer16(sendData);
 	digitalWrite(_pin, LOW);
-
 	return readData;
 }

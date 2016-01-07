@@ -113,7 +113,7 @@ void loop ()
         if (Axis[currentAxis].G_STATUS_REG.OTS) Serial.println("ERROR: Over Temperature");
       }
       LastRead = millis();
-      Axis[currentAxis].clear_status();
+      //Axis[currentAxis].clear_status();
    }
     
   //Serial Interface
