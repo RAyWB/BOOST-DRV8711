@@ -45,17 +45,17 @@ void drv8711::set_defaults ()
 	// OFF Register
 	G_OFF_REG.Address 	= 0x02;
 	G_OFF_REG.PWMMODE 	= OFF;			//PWM Direct Mode - OFF for Indexed Mode 
-	G_OFF_REG.TOFF 		= 48;			//Off Time 0..255 * 500ns 
+	G_OFF_REG.TOFF 		= 47;			//Off Time 0..255 in 500ns inc.
 
 	// BLANK Register
 	G_BLANK_REG.Address = 0x03;			
-	G_BLANK_REG.ABT 	= ON;			//Enable Adaptive Blanking Time
-	G_BLANK_REG.TBLANK 	= 100;			//Blanking Time 0..255 * 20ns + 1uS
+	G_BLANK_REG.ABT 	= OFF;			//Enable Adaptive Blanking Time
+	G_BLANK_REG.TBLANK 	= 125;			//Blanking Time 0..255 in 20ns inc ( 1us min )
 
 	// DECAY Register.
 	G_DECAY_REG.Address = 0x04;
 	G_DECAY_REG.DECMOD  = DECMOD_MIXAUTO;	//Decay Mode
-	G_DECAY_REG.TDECAY 	= 16;				//Decay Time 0..255 * 500ns
+	G_DECAY_REG.TDECAY 	= 15;				//Decay Time 0..255 * 500ns
 
 	// STALL Register
 	G_STALL_REG.Address = 0x05;

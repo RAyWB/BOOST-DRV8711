@@ -19,6 +19,7 @@
 #include <drv8711.h>
 #include <SPI.h>
 
+#define SLEEPpin 9
 #define RESETpin 7
 #define X_ssPin 3
 #define Y_ssPin 4
@@ -38,14 +39,13 @@ const float ISGAIN5_max = 2.75 * 255 / (256 * 5 * ISENSE) ;
 // variables for decoded parameters
 int ISGAIN = 0;      // Currently Selected ISGAIN Value
 float Amps = 0.00;   // For Calculated Peak Current 
-String DECMOD = ""; // For Text Desc of Decay Mode
 float TBLANK = 0.0;  // For Blanking Time in uS
 String ABT = "";  // For ABT State
 float TDECAY = 0.0;  // For Decay Time in uS
 float TOFF = 0.0;  // For PWM Off time in uS
 
 // variables for reading status register
-int readDelay = 2000 ;
+int readDelay = 1000 ;
 long int LastRead = 0;
 
 // variables for serial input
@@ -58,12 +58,19 @@ int currentAxis = 0;    // Selected Axis
 void setup ()
 //##########################################################################
 {
+  // Wake Modules
+  pinMode (SLEEPpin, OUTPUT) ;
+  digitalWrite (SLEEPpin, HIGH) ;
+  delay(1);
+  
   // Reset the driver before initialisation
   pinMode (RESETpin, OUTPUT) ;
   digitalWrite (RESETpin, HIGH) ;
   delay (10) ;
   digitalWrite (RESETpin, LOW) ;
   delay (1) ;
+  
+  digitalWrite (12,HIGH);
   
   // Start Serial
   Serial.begin (115200) ;
@@ -78,10 +85,10 @@ void setup ()
     Axis[i].G_TORQUE_REG.TORQUE = 186 ;            // Set current to 2 amps
     Axis[i].G_CTRL_REG.MODE = STEPS_32 ;           // Microstepping mode to 1/32
     Axis[i].G_DECAY_REG.DECMOD = DECMOD_MIXAUTO ;  // Decay Mode to Mixed Auto
-    Axis[i].G_BLANK_REG.TBLANK = 115 ;             // TBLANK to 3 uS
+    Axis[i].G_BLANK_REG.TBLANK = 129;             // TBLANK to 2.6 uS
     Axis[i].G_BLANK_REG.ABT = ON ;                 // ABT ON
-    //Axis[i].G_DECAY_REG.TDECAY = 16 ;              // TDECAY not used un Mixed Auto Mode
-    Axis[i].G_OFF_REG.TOFF = 32 ;                  // TOFF to 16 uS
+    Axis[i].G_DECAY_REG.TDECAY = 7 ;              // TDECAY to 4 uS
+    Axis[i].G_OFF_REG.TOFF = 31 ;                  // TOFF to 16 uS
   
     Axis[i].disable() ;                             // disable Motors
   
@@ -113,7 +120,7 @@ void loop ()
         if (Axis[currentAxis].G_STATUS_REG.OTS) Serial.println("ERROR: Over Temperature");
       }
       LastRead = millis();
-      //Axis[currentAxis].clear_status();
+      Axis[currentAxis].clear_status();
    }
     
   //Serial Interface
@@ -170,10 +177,10 @@ void displaySettings ()
   }
   //calculate human friendly values
   Amps = 2.75 * Axis[currentAxis].G_TORQUE_REG.TORQUE / ( 256 * ISENSE * ISGAIN ) ;
-  TBLANK = Axis[currentAxis].G_BLANK_REG.TBLANK * 0.02 + 1 ;
+  TBLANK = ( Axis[currentAxis].G_BLANK_REG.TBLANK + 1 )* 0.02;
   if (Axis[currentAxis].G_BLANK_REG.ABT) { ABT = "ON"; } else { ABT = "OFF"; }
-  TDECAY = Axis[currentAxis].G_DECAY_REG.TDECAY * 0.5 ;
-  TOFF = Axis[currentAxis].G_OFF_REG.TOFF * 0.5 ;
+  TDECAY = ( Axis[currentAxis].G_DECAY_REG.TDECAY + 1 )* 0.5 ;
+  TOFF = ( Axis[currentAxis].G_OFF_REG.TOFF + 1 ) * 0.5 ;
 
   //output summary
   Serial.println ("############################################################################################") ;
@@ -182,7 +189,7 @@ void displaySettings ()
   Serial.println (" (I) Peak Current: " + String( Amps ) + "A    ( TORQUE: " + String(Axis[currentAxis].G_TORQUE_REG.TORQUE) +" , ISGAIN: " + String(ISGAIN) + " )");
   Serial.println (" (S) MicroStep Mode: 1/" + String(pow(2,Axis[currentAxis].G_CTRL_REG.MODE),0));
   Serial.println (" (M) Decay Mode: " + String(Axis[currentAxis].G_DECAY_REG.DECMOD) + " (0:SLOW, 1:SLOW/MIXED, 2:FAST, 3:MIXED , 4:SLOW/AUTO, 5:AUTOMIXED)");
-  Serial.println (" (B) TBLANK: " + String(TBLANK,2) + "uS");
+  Serial.println (" (B) TBLANK: " + String(TBLANK,2) + "uS (" + String(Axis[currentAxis].G_BLANK_REG.TBLANK) +")");
   Serial.println (" (A) ABT: " +  ABT ) ;
   Serial.println (" (D) TDECAY: " + String(TDECAY,1) + "uS");
   Serial.println (" (O) TOFF: " + String(TOFF,1) + "uS");
@@ -302,8 +309,8 @@ void setDecayMode( int dmode )
 void setTBLANK( float newTime )
 //##########################################################################
 {
- if ( newTime >= 1 and newTime <= 6.1) {
-   Axis[currentAxis].G_BLANK_REG.TBLANK = int((newTime -1)/0.02) ;
+ if ( newTime >= 1 and newTime <= 5.1) {
+   Axis[currentAxis].G_BLANK_REG.TBLANK = int((newTime)/0.02) - 1 ;
    Axis[currentAxis].WriteAllRegisters();
  }
 }
@@ -312,8 +319,8 @@ void setTBLANK( float newTime )
 void setTDECAY ( float newTime )
 //##########################################################################
 {
- if (newTime >= 0 and newTime < 128) {
-   Axis[currentAxis].G_DECAY_REG.TDECAY = int(newTime * 2) ;
+ if (newTime >= 0.5 and newTime < 128) {
+   Axis[currentAxis].G_DECAY_REG.TDECAY = int(newTime * 2) - 1 ;
    Axis[currentAxis].WriteAllRegisters();
   }
 }
@@ -322,8 +329,8 @@ void setTDECAY ( float newTime )
 void setTOFF ( float newTime )
 //##########################################################################
 {
- if (newTime >= 0 and newTime < 128) {
-   Axis[currentAxis].G_OFF_REG.TOFF = int(newTime * 2) ;
+ if (newTime >= 0.5 and newTime < 128) {
+   Axis[currentAxis].G_OFF_REG.TOFF = int(newTime * 2) - 1 ;
    Axis[currentAxis].WriteAllRegisters();
   }
 }

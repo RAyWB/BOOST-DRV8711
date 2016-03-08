@@ -6,6 +6,7 @@
 #include <SPI.h>
 
 #define FaultPin 2  // connected to LED to indicate Fault 
+#define SleepPin 9  // Drv8711 nSleep
 #define ResetPin 7  // Drv8711 Reset
 #define X_ssPin 3   // SPI ss Pins
 #define Y_ssPin 4
@@ -19,7 +20,7 @@ drv8711 Axis[nAxis] = { drv8711(X_ssPin), drv8711(Y_ssPin), drv8711(Z_ssPin)}; /
 
 // Current Settings
 const int Moving_Torque[nAxis] = {186,186,186} ;
-const int Stopped_Torque[nAxis] = {93,93,93} ;
+//const int Stopped_Torque[nAxis] = {93,93,93} ;
 
 // variables for decoded parameters
 const float ISENSE = 0.05;  // Value of current sense resistors in ohms
@@ -34,7 +35,7 @@ int currentAxis = 0;
 
 int readDelay = 1000 ;
 long int LastRead = 0;
-boolean LastEnableIn = HIGH ;
+boolean LastEnableIn = LOW ;
 boolean EnableVal = HIGH ;
 
 //##########################################################################
@@ -42,6 +43,7 @@ void setup ()
 //##########################################################################
 {
   pinMode(FaultPin, OUTPUT) ;
+  pinMode(SleepPin, OUTPUT) ;
   pinMode(ResetPin, OUTPUT) ;
   pinMode(X_ssPin, OUTPUT) ;
   pinMode(Y_ssPin, OUTPUT) ;
@@ -49,6 +51,7 @@ void setup ()
   pinMode(EnableInPin, INPUT) ;
   
   digitalWrite(FaultPin, HIGH);
+  digitalWrite(SleepPin, HIGH);
   
   // Start Serial
   Serial.begin (115200) ;
@@ -66,6 +69,7 @@ void loop ()
    // Check for error flags & if found disable motor
    for(int i=0; i<nAxis; i++){
       if (Axis[i].ErrorFlag) {
+        //Serial.println("Comms Error Axis:" + String(i));
         digitalWrite(FaultPin, HIGH);
         Axis[i].clear_error();
         Axis[i].disable();
@@ -78,11 +82,13 @@ void loop ()
    if (EnableVal != LastEnableIn) {
      for (int i=0; i<nAxis; i++){
        if (EnableVal == LOW) {
-         Axis[i].G_TORQUE_REG.TORQUE = Moving_Torque[i] ;  
+         //Axis[i].G_TORQUE_REG.TORQUE = Moving_Torque[i] ;
+         Axis[i].enable();  
        } else {
-         Axis[i].G_TORQUE_REG.TORQUE = Stopped_Torque[i] ;  
+         //Axis[i].G_TORQUE_REG.TORQUE = Stopped_Torque[i] ;
+         Axis[i].disable();  
        }
-       Axis[i].WriteTORQUERegister() ;
+       //Axis[i].WriteTORQUERegister() ;
      }
      LastEnableIn = EnableVal ;
    }
@@ -115,33 +121,30 @@ void setRegisters()
   }
   
   // Make specific register settings
-  Axis[0].G_TORQUE_REG.TORQUE = Stopped_Torque[0] ;// Set TORQUE value 0..255 ( Peak Amps = 2.75 * TORQUE / (256 * IGAIN * RSENSE))
+  Axis[0].G_TORQUE_REG.TORQUE = Moving_Torque[0] ;// Set TORQUE value 0..255 ( Peak Amps = 2.75 * TORQUE / (256 * IGAIN * RSENSE))
   Axis[0].G_CTRL_REG.MODE = STEPS_32 ;           // Microstepping mode to 1/32
   Axis[0].G_DECAY_REG.DECMOD = DECMOD_MIXAUTO ;  // Decay Mode to Mixed Auto
-  Axis[0].G_BLANK_REG.TBLANK = 115 ;             // TBLANK to 3.3 uS
+  Axis[0].G_BLANK_REG.TBLANK = 129 ;             // TBLANK to 2.6 uS
   Axis[0].G_BLANK_REG.ABT = ON ;                 // ABT ON
-  Axis[0].G_DECAY_REG.TDECAY = 16 ;              // TDECAY to 8 uS
-  Axis[0].G_OFF_REG.TOFF = 32 ;                  // TOFF to 16 uS
-  //Axis[0].G_CTRL_REG.ENBL = ON ;                 // Enable Motor
+  Axis[0].G_DECAY_REG.TDECAY = 7 ;              // TDECAY to 4 uS
+  Axis[0].G_OFF_REG.TOFF = 31 ;                  // TOFF to 16 uS
   
-  Axis[1].G_TORQUE_REG.TORQUE = Stopped_Torque[1] ;// Set TORQUE value 0..255 ( Peak Amps = 2.75 * TORQUE / (256 * IGAIN * RSENSE))
+  Axis[1].G_TORQUE_REG.TORQUE = Moving_Torque[1] ;// Set TORQUE value 0..255 ( Peak Amps = 2.75 * TORQUE / (256 * IGAIN * RSENSE))
   Axis[1].G_CTRL_REG.MODE = STEPS_32 ;           // Microstepping mode to 1/32
   Axis[1].G_DECAY_REG.DECMOD = DECMOD_MIXAUTO ;  // Decay Mode to Mixed Auto
-  Axis[1].G_BLANK_REG.TBLANK = 115 ;             // TBLANK to 3.3 uS
+  Axis[1].G_BLANK_REG.TBLANK = 129 ;             // TBLANK to 2.6 uS
   Axis[1].G_BLANK_REG.ABT = ON ;                 // ABT ON
-  Axis[1].G_DECAY_REG.TDECAY = 16 ;              // TDECAY to 8 uS
-  Axis[1].G_OFF_REG.TOFF = 32 ;                  // TOFF to 16 uS
-  //Axis[1].G_CTRL_REG.ENBL = ON ;                 // Enable Motor
-
-  Axis[2].G_TORQUE_REG.TORQUE = Stopped_Torque[2] ;// Set TORQUE value 0..255 ( Peak Amps = 2.75 * TORQUE / (256 * IGAIN * RSENSE))
+  Axis[1].G_DECAY_REG.TDECAY = 7 ;              // TDECAY to 4 uS
+  Axis[1].G_OFF_REG.TOFF = 31 ;                  // TOFF to 16 uS
+  
+  Axis[2].G_TORQUE_REG.TORQUE = Moving_Torque[2] ;// Set TORQUE value 0..255 ( Peak Amps = 2.75 * TORQUE / (256 * IGAIN * RSENSE))
   Axis[2].G_CTRL_REG.MODE = STEPS_32 ;           // Microstepping mode to 1/16
   Axis[2].G_DECAY_REG.DECMOD = DECMOD_MIXAUTO ;  // Decay Mode to Mixed Auto
-  Axis[2].G_BLANK_REG.TBLANK = 115 ;             // TBLANK to 3.3 uS
+  Axis[2].G_BLANK_REG.TBLANK = 129 ;             // TBLANK to 2.6 uS
   Axis[2].G_BLANK_REG.ABT = ON ;                 // ABT ON
-  Axis[2].G_DECAY_REG.TDECAY = 16 ;              // TDECAY to 8 uS
-  Axis[2].G_OFF_REG.TOFF = 32 ;                  // TOFF to 16 uS
-  //Axis[2].G_CTRL_REG.ENBL = ON ;                 // Enable Motor
-
+  Axis[2].G_DECAY_REG.TDECAY = 7 ;              // TDECAY to 4 uS
+  Axis[2].G_OFF_REG.TOFF = 31 ;                  // TOFF to 16 uS
+  
   // toggle Reset Pin
   digitalWrite (ResetPin, HIGH) ;
   delay (10) ;
@@ -189,10 +192,10 @@ void displaySettings ()
   }
   //calculate human friendly values
   Amps = 2.75 * Axis[currentAxis].G_TORQUE_REG.TORQUE / ( 256 * ISENSE * ISGAIN ) ;
-  TBLANK = Axis[currentAxis].G_BLANK_REG.TBLANK * 0.02 + 1 ;
+  TBLANK = ( Axis[currentAxis].G_BLANK_REG.TBLANK + 1 ) * 0.02 ;
   if (Axis[currentAxis].G_BLANK_REG.ABT) { ABT = "ON"; } else { ABT = "OFF"; }
-  TDECAY = Axis[currentAxis].G_DECAY_REG.TDECAY * 0.5 ;
-  TOFF = Axis[currentAxis].G_OFF_REG.TOFF * 0.5 ;
+  TDECAY = ( Axis[currentAxis].G_DECAY_REG.TDECAY + 1 ) * 0.5 ;
+  TOFF = ( Axis[currentAxis].G_OFF_REG.TOFF + 1 ) * 0.5 ;
 
   //output summary
   Serial.println ("############################################################################################") ;
@@ -231,7 +234,7 @@ void checkStatus()
             if (Axis[i].G_STATUS_REG.OTS) Serial.println("ERROR: Axis:" + String(i) + " Over Temperature");
           }
       
-          //Axis[i].clear_status();
+          Axis[i].clear_status();
        }
       }
    LastRead = millis();
